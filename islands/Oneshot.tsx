@@ -1,8 +1,16 @@
 import { useEffect, useState } from "preact/hooks";
-import { Blockfrost, Constr, Data, fromText, Lucid } from "lucid/mod.ts";
+import {
+  Blockfrost,
+  Constr,
+  Data,
+  fromText,
+  Lucid,
+  Network,
+} from "lucid/mod.ts";
 
 import { Input } from "~/components/Input.tsx";
 import { Button } from "~/components/Button.tsx";
+import { Select } from "~/components/Select.tsx";
 
 import {
   AppliedValidators,
@@ -18,6 +26,8 @@ export interface AppProps {
 export default function App({ validators }: AppProps) {
   const [lucid, setLucid] = useState<Lucid | null>(null);
   const [blockfrostAPIKey, setBlockfrostAPIKey] = useState<string>("");
+  const [blockfrostNetwork, setBlockfrostNetwork] =
+    useState<Network>("Preview");
   const [tokenName, setTokenName] = useState<string>("");
   const [giftADA, setGiftADA] = useState<string | undefined>();
   const [lockTxHash, setLockTxHash] = useState<string | undefined>(undefined);
@@ -29,16 +39,33 @@ export default function App({ validators }: AppProps) {
   const [parameterizedContracts, setParameterizedContracts] =
     useState<AppliedValidators | null>(null);
 
+  useEffect(() => {
+    const blockfrostNetwork = localStorage.getItem("curretNetwork");
+    const blockfrostAPIKey = localStorage.getItem(
+      `blockfrost:${blockfrostNetwork}`
+    );
+
+    if (blockfrostNetwork && blockfrostAPIKey) {
+      setBlockfrostAPIKey(blockfrostAPIKey);
+      setBlockfrostNetwork(blockfrostNetwork as Network);
+    }
+  }, []);
+
   const setupLucid = async (e: Event) => {
     e.preventDefault();
 
+    console.log(blockfrostAPIKey, blockfrostNetwork);
+
     const lucid = await Lucid.new(
       new Blockfrost(
-        "https://cardano-preprod.blockfrost.io/api/v0",
+        `https://cardano-${blockfrostNetwork.toLowerCase()}.blockfrost.io/api/v0`,
         blockfrostAPIKey
       ),
-      "Preprod"
+      blockfrostNetwork
     );
+
+    localStorage.setItem("curretNetwork", blockfrostNetwork);
+    localStorage.setItem(`blockfrost:${blockfrostNetwork}`, blockfrostAPIKey);
 
     const cache = localStorage.getItem("cache");
 
@@ -193,13 +220,27 @@ export default function App({ validators }: AppProps) {
     <div>
       {!lucid ? (
         <form class="mt-10 grid grid-cols-1 gap-y-8" onSubmit={setupLucid}>
+          <Select
+            type="password"
+            id="blockfrostAPIKey"
+            value={blockfrostNetwork}
+            onChange={(e) =>
+              setBlockfrostNetwork(e.currentTarget.value as Network)
+            }
+            label={"Blockfrost Network"}
+            options={[
+              { value: "Preview", label: "Preview" },
+              { value: "Preprod", label: "Preprod" },
+            ]}
+          />
+
           <Input
             type="password"
             id="blockfrostAPIKey"
             value={blockfrostAPIKey}
             onInput={(e) => setBlockfrostAPIKey(e.currentTarget.value)}
           >
-            Blockfrost API Key (Preprod)
+            Blockfrost API Key
           </Input>
 
           <Button type="submit">Setup Lucid</Button>
